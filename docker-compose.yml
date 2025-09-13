@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: hotel-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: hotel_management_db
+      MYSQL_USER: hoteluser
+      MYSQL_PASSWORD: hotelpass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts:/docker-entrypoint-initdb.d
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  hotel-app:
+    build: .
+    container_name: hotel-management-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_USER: hoteluser
+      MYSQL_PASSWORD: hotelpass
+      JWT_SECRET: hotelManagementDockerSecretKey2024
+      JWT_EXPIRATION: 86400000
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    volumes:
+      - app_logs:/app/logs
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: hotel-phpmyadmin
+    environment:
+      PMA_HOST: mysql-db
+      PMA_PORT: 3306
+      PMA_USER: hoteluser
+      PMA_PASSWORD: hotelpass
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql-db
+    networks:
+      - hotel-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  app_logs:
+
+networks:
+  hotel-network:
+    driver: bridge
